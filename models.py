@@ -194,3 +194,15 @@ with Session(engine) as session:
     for x in ratings[:10]:
         print(x)
 
+
+
+class Users(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    roles: Mapped[str] = mapped_column(String(255), default="USER")  # np. ROLE_ADMIN,ROLE_USER
+
+    def __repr__(self) -> str:
+        return f"User(id={self.id!r}, username={self.username!r}, roles={self.roles!r})"
