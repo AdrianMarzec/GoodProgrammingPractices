@@ -1,21 +1,25 @@
 # producer.py
 import csv
-import uuid
-import time
+import os
+from datetime import datetime
 
-FILE_PATH = "tasks.csv"
-
+FILE_NAME = "tasks.csv"
 
 def add_task():
-    task_id = str(uuid.uuid4())
-    with open(FILE_PATH, mode="a", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow([task_id, "pending"])
-    print(f"Added task {task_id}")
+    task = [
+        str(datetime.now()),  # timestamp
+        "pending"             # status
+    ]
 
+    file_exists = os.path.isfile(FILE_NAME)
+
+    with open(FILE_NAME, "a", newline="") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["created_at", "status"])
+        writer.writerow(task)
+
+    print("Dodano zadanie:", task)
 
 if __name__ == "__main__":
-    print("Producer running...")
-    for _ in range(100):
-        add_task()
-        time.sleep(0.01)
+    add_task()

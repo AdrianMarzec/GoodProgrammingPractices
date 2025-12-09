@@ -4,134 +4,63 @@ import time
 import os
 from datetime import datetime
 
-FILE_PATH = "tasks.csv"
-LOCK_FILE = "tasks.lock"
+FILE_NAME = "tasks.csv"
 
-
-def lock():
-    while os.path.exists(LOCK_FILE):
-        time.sleep(0.1)
-    open(LOCK_FILE, "w").close()
-
-
-def unlock():
-    if os.path.exists(LOCK_FILE):
-        os.remove(LOCK_FILE)
-
+CHECK_INTERVAL = 5
+WORK_TIME = 30
 
 def read_tasks():
     tasks = []
-    try:
-        with open(FILE_PATH, mode="r", newline="") as file:
-            reader = csv.reader(file)
-            for row in reader:
-                if len(row) == 2:
-                    tasks.append(row)
-    except FileNotFoundError:
-        pass
-    return tasks
+    with open(FILE_NAME, "r", newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        for row in reader:
+            tasks.append(row)
+    return header, tasks
 
-
-def write_tasks(tasks):
-    with open(FILE_PATH, mode="w", newline="") as file:
-        writer = csv.writer(file)
+def write_tasks(header, tasks):
+    with open(FILE_NAME, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
         writer.writerows(tasks)
 
+def consume_task():
+    if not os.path.isfile(FILE_NAME):
+        print("Brak pliku kolejki...")
+        return False
 
-def process_task(task_id):
-    print(f"[{datetime.now()}] Starting task {task_id}")
-    time.sleep(30)
-    print(f"[{datetime.now()}] Finished task {task_id}")
+    header, tasks = read_tasks()
 
+    # Znajdź pierwsze pending
+    for i, task in enumerate(tasks):
+        if task[1] == "pending":
+            print(f"[{datetime.now()}] Konsument pobiera zadanie {i}")
+            tasks[i][1] = "in_progress"
+            write_tasks(header, tasks)
+            return i  # index zadania
 
-if __name__ == "__main__":
-    print("Consumer started...")
+    return None
+
+def finish_task(task_index):
+    header, tasks = read_tasks()
+    tasks[task_index][1] = "done"
+    write_tasks(header, tasks)
+
+def consumer_loop():
+    print("Konsument wystartował...")
 
     while True:
-        lock()
-        tasks = read_tasks()
+        task_index = consume_task()
 
-        target_index = None
-        for i, (tid, status) in enumerate(tasks):
-            if status == "pending":
-                target_index = i
-                tasks[i][1] = "in_progress"
-                write_tasks(tasks)
-                break
-
-        unlock()
-
-        if target_index is None:
-            time.sleep(5)
+        if task_index is None:
+            print("Brak zadań. Czekam...")
+            time.sleep(CHECK_INTERVAL)
             continue
 
-        task_id = tasks[target_index][0]
-        process_task(task_id)
-
-        lock()
-        tasks = read_tasks()
-        for j, (tid, status) in enumerate(tasks):
-            if tid == task_id:
-                tasks[j][1] = "done"
-        write_tasks(tasks)
-        unlock()
-import csv
-import time
-from datetime import datetime
-
-FILE_PATH = "tasks.csv"
-
-
-def read_tasks():
-    tasks = []
-    try:
-        with open(FILE_PATH, mode="r", newline="") as file:
-            reader = csv.reader(file)
-            for row in reader:
-                if len(row) == 2:
-                    tasks.append(row)
-    except FileNotFoundError:
-        pass
-    return tasks
-
-
-def write_tasks(tasks):
-    with open(FILE_PATH, mode="w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerows(tasks)
-
-
-def process_task(task_id):
-    print(f"[{datetime.now()}] Starting task {task_id}")
-    time.sleep(30)  # simulate work
-    print(f"[{datetime.now()}] Finished task {task_id}")
-
+        print(f"Rozpoczynam pracę nad zadaniem {task_index} przez {WORK_TIME} sekund...")
+        time.sleep(WORK_TIME)
+        finish_task(task_index)
+        print(f"Zadanie {task_index} zakończone.")
 
 if __name__ == "__main__":
-    print("Consumer started...")
-
-    while True:
-        tasks = read_tasks()
-        updated = False
-
-        for i, (task_id, status) in enumerate(tasks):
-            if status == "pending":
-                # mark as in progress
-                tasks[i][1] = "in_progress"
-                write_tasks(tasks)
-
-                # execute work
-                process_task(task_id)
-
-                # mark as done
-                tasks = read_tasks()
-                for j, (tid, st) in enumerate(tasks):
-                    if tid == task_id:
-                        tasks[j][1] = "done"
-                write_tasks(tasks)
-
-                updated = True
-                break
-
-        if not updated:
-            time.sleep(5)  # wait before checking again
+    consumer_loop()
