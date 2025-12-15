@@ -1,51 +1,54 @@
 # main.py
 import subprocess
 import time
+import sqlite3
 import os
 
 PRODUCER = "producer.py"
 CONSUMER = "consumer.py"
-TASKS_FILE = "tasks.csv"
+DB_NAME = "tasks.db"
 
 NUM_TASKS = 100
 NUM_CONSUMERS = 5
-
 
 def create_tasks():
     print(f"Tworzę {NUM_TASKS} zadań...")
     for _ in range(NUM_TASKS):
         subprocess.run(["python", PRODUCER])
 
-
 def start_consumers():
     print(f"Uruchamiam {NUM_CONSUMERS} konsumentów...\n")
-
     processes = []
-    for i in range(NUM_CONSUMERS):
+
+    for _ in range(NUM_CONSUMERS):
         p = subprocess.Popen(["python", CONSUMER])
         processes.append(p)
-        time.sleep(0.5)  # delikatne opóźnienie startów
+        time.sleep(0.5)
 
     return processes
 
-
 def wait_for_completion():
-    print("\nOczekiwanie aż wszystkie zadania będą 'done'...")
+    print("\nOczekiwanie aż wszystkie zadania będą done...")
 
     while True:
-        if not os.path.isfile(TASKS_FILE):
+        if not os.path.isfile(DB_NAME):
             time.sleep(2)
             continue
 
-        with open(TASKS_FILE, "r") as f:
-            lines = f.readlines()
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    SUM(status = 'pending'),
+                    SUM(status = 'in_progress'),
+                    SUM(status = 'done')
+                FROM tasks
+            """)
+            pending, in_progress, done = cursor.fetchone()
 
-        # Pomijamy nagłówek
-        statuses = [line.split(",")[1].strip() for line in lines[1:]]
-
-        pending = statuses.count("pending")
-        in_progress = statuses.count("in_progress")
-        done = statuses.count("done")
+        pending = pending or 0
+        in_progress = in_progress or 0
+        done = done or 0
 
         print(f"pending={pending}, in_progress={in_progress}, done={done}")
 
@@ -55,13 +58,11 @@ def wait_for_completion():
 
         time.sleep(5)
 
-
 def stop_consumers(processes):
-    print("Zatrzymuję procesy konsumentów...")
+    print("Zatrzymuję konsumentów...")
     for p in processes:
         p.terminate()
     print("Konsumenci zatrzymani.")
-
 
 if __name__ == "__main__":
     create_tasks()
