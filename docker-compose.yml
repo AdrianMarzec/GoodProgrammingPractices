@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: 1234
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  service_a:
+    build: .
+    command: python service_a.py
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RESULTS_DB_PATH: /data/results.db
+      ENABLE_RESULT_CONSUMER: "true"
+    volumes:
+      - service_a_data:/data
+    depends_on:
+      - rabbitmq
+    ports:
+      - "6767:6767"
+
+  service_b_api:
+    build: .
+    command: python service_b.py
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      SERVICE_A_URL: http://service_a:6767
+    depends_on:
+      - rabbitmq
+      - service_a
+    ports:
+      - "6969:6969"
+
+  service_b_consumer:
+    build: .
+    command: python worker.py
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      SERVICE_A_URL: http://service_a:6767
+    depends_on:
+      - rabbitmq
+      - service_a
+    deploy:
+      replicas: 3
+
+volumes:
+  service_a_data:
+

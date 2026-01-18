@@ -1,0 +1,10 @@
+venv/
+.idea
+.vscode/
+yolov3.cfg
+yolov3.weights
+queue.db
+__pycache__/
+trash/
+uploaded_images/
+.pytest_cache/

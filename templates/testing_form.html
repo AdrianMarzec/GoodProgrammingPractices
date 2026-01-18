@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Projekt - Adrian Marzec</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    /* ===== RESET & BASE ===== */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      background: linear-gradient(135deg, #4f94d8, #1e3a8a);
+      color: #111827;
+    }
+
+    /* ===== PAGE LAYOUT ===== */
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    /* ===== HEADERS ===== */
+    h1 {
+      font-size: 36px;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 8px;
+      color: #ffffff;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: 500;
+      text-align: center;
+      margin-bottom: 32px;
+      color: #000000;
+    }
+
+    /* ===== CARD ===== */
+    .card {
+      background: #f9fafb;
+      border: 3px solid #163574;
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    /* ===== FORM ELEMENTS ===== */
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .label-checkbox {
+      margin-bottom: 2px;
+    }
+
+    /* ===== INPUTS ===== */
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      border: 2px solid #1e3a8a;
+      border-radius: 10px;
+      font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    }
+
+    /* ===== CHECKBOX ===== */
+    .checkbox {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      font-size: 14px;
+      color: #374151;
+    }
+
+    /* ===== BUTTONS ===== */
+    button {
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #4338ca);
+      color: #ffffff;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    }
+
+    button.secondary {
+      background: #ffffff;
+      color: #4338ca;
+      border: 2px solid #4338ca;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+      opacity: 0.95;
+    }
+
+    /* ===== CODE / OUTPUT ===== */
+    pre {
+      background: #0f172a;
+      color: #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 13px;
+      overflow-x: auto;
+      margin-top: 16px;
+    }
+
+    /* ===== RESULTS ===== */
+    .result {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #1f2937;
+    }
+
+    /* ===== UTIL ===== */
+    .mt-8 {
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Dobre Praktyki Programowania - Projekt</h1>
+
+    <div class="card">
+      <h2>Detekcja ludzi</h2>
+
+      <label for="url">Obraz URL</label>
+      <input id="url" type="text" placeholder="https://example.com/image.jpg">
+
+      <div class="checkbox">
+        <input id="save_img" type="checkbox">
+        <label for="save_img" class="label-checkbox">Zapisz obraz</label>
+      </div>
+
+      <input id="save_path" type="text" placeholder="PATH do zapisu">
+
+      <button onclick="enqueue()">Detekcja</button>
+      <button onclick="enqueue100()">100 Zapytań</button>
+      <div id="enqueue_result" class="result"></div>
+    </div>
+
+    <div class="card">
+      <h2>Status Zadania</h2>
+
+      <input id="task_id" type="text" placeholder="task_id">
+
+      <button class="secondary" onclick="checkStatus()">Sprawdź status</button>
+      <label for="status_result" class="mt-8">Status:</label>
+      <pre id="status_result"></pre>
+    </div>
+  </div>
+
+  <script>
+    async function enqueue() {
+      const url = document.getElementById('url').value;
+      const save_img = document.getElementById('save_img').checked;
+      const save_path = document.getElementById('save_path').value;
+      const resultBox = document.getElementById('enqueue_result');
+      resultBox.textContent = 'Sending…';
+      try {
+        const resp = await fetch('/detect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, save_img, save_path })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(JSON.stringify(data));
+        resultBox.textContent = `task_id: ${data.task_id}`;
+        document.getElementById('task_id').value = data.task_id;
+      } catch (err) {
+        resultBox.textContent = `Error: ${err}`;
+      }
+    }
+
+    async function enqueue100() {
+      for (let i = 0; i < 100; i++) {
+        await enqueue();
+      }
+    }
+
+    async function checkStatus() {
+      const taskId = document.getElementById('task_id').value;
+      const statusBox = document.getElementById('status_result');
+      statusBox.textContent = 'Checking…';
+      try {
+        const resp = await fetch(`/status/${taskId}`);
+        const data = await resp.json();
+        statusBox.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        statusBox.textContent = `Error: ${err}`;
+      }
+    }
+  </script>
+</body>
+</html>
