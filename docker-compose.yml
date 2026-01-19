@@ -42,6 +42,9 @@ services:
     environment:
       RABBITMQ_HOST: rabbitmq
       SERVICE_A_URL: http://service_a:6767
+      SAVE_IMG_PATH: /images
+    volumes:
+      - ./output_images:/images
     depends_on:
       - rabbitmq
       - service_a

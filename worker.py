@@ -37,7 +37,8 @@ def process_message(channel, method, properties, body):
         task_id = payload["task_id"] #wyciąga id, url, czy zapis i gdzie
         source = payload["source"]
         save_img = bool(payload.get("save_img", False))
-        save_path = payload.get("save_path", SAVE_IMG_PATH)
+        save_path = payload.get("save_path") or SAVE_IMG_PATH
+
 
         # actual detection
         result = detect_people(source, save_img, save_path) #wywołanie YOLO

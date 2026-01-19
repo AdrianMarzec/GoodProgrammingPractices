@@ -1,0 +1,30 @@
+- zainstalować biblioteki `pip install -r requirements.txt --upgrade`
+- Pobrać YOLOv3-608 cfg i plik weights z tej strony https://pjreddie.com/darknet/yolo/
+
+`docker-compose.yml` odpala
+- RabbitMQ
+- Service A API
+- Service B API
+- 3 workerów
+
+docker compose up --build
+
+docker compose up --scale service_b_consumer=10
+
+## Endpoints
+
+- Service B `/detect` POST `{"url": "<image_url>", "save_img": false, "save_path": ""}` ->ID taska
+- Service A `/tasks/<task_id>` GET -> status/wynik
+
+
+https://img.freepik.com/darmowe-psd/izolowani-dorosli-dobrze-sie-bawia_23-2150755660.jpg?semt=ais_hybrid&w=740&q=80
+
+https://thumbs.dreamstime.com/b/group-business-people-white-background-150146125.jpg
+
+https://thumbs.dreamstime.com/b/ludzie-biznesu-9215372.jpg
+
+RabbitMQ: http://localhost:15672/
+
+HTML (Serwis B): http://localhost:6969/
+
+Zdjęcia zapisywane są do folderu output_images wraz z prostokątnymi zaznaczeniami ludzi, których detekcja znalazła

@@ -1,0 +1,1 @@
+w tym folderze zapisują się zdjęcia po detekcji
