@@ -14,9 +14,7 @@ services:
     build: .
     command: python service_a.py
     environment:
-      RABBITMQ_HOST: rabbitmq
       RESULTS_DB_PATH: /data/results.db
-      ENABLE_RESULT_CONSUMER: "true"
     volumes:
       - service_a_data:/data
     depends_on:
