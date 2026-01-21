@@ -2,20 +2,12 @@
 import json
 import os
 import sqlite3
-import threading
-import time
 from datetime import datetime
 from typing import Any, Dict, Optional
-import pika
 import pytz #strefy czasowe
 from flask import Flask, jsonify, request #API Serwisu A
 
 # config
-RABBIT_HOST = os.getenv("RABBITMQ_HOST", "localhost")
-RABBIT_PORT = int(os.getenv("RABBITMQ_PORT", "5672"))
-RABBIT_USER = os.getenv("RABBITMQ_USER", "admin")
-RABBIT_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "1234")
-RESULT_QUEUE = os.getenv("RESULT_QUEUE", "results") #kolejka z wynikami z workerów
 DB_PATH = os.getenv("RESULTS_DB_PATH", "results.db") #plik sqlite
 TZ = pytz.timezone(os.getenv("TZ", "UTC")) #strefa czasowa do timestampów
 
@@ -81,6 +73,14 @@ class ResultRepository:
     def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
         row = self.conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         return dict(row) if row else None
+    
+    #Pobiera wszystkie taski z bazy
+    def get_all_tasks(self) -> list[Dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT * FROM tasks ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
 
 #Inicjalizacja Flask i repozytorium
 app = Flask(__name__)
@@ -116,58 +116,32 @@ def task_status(task_id: str):
 def health():
     return jsonify({"status": "ok"}), 200
 
+#Zapisuje wynik taska
+@app.route("/tasks/<task_id>/result", methods=["POST"])
+def update_task_result(task_id: str):
+    data = request.get_json(force=True, silent=True) or {}
 
-#CALLBACK dla odbierania wyników z RabbitMQ
-"""
-    1. Dekoduje JSON z kolejki RESULT_QUEUE
-    2. Aktualizuje wynik w DB
-    3. ACK jeśli OK
-    4. NACK+requeue jeśli błąd, żeby nie stracić taska
-"""
-def _result_callback(channel, method, properties, body):
-    try:
-        payload = json.loads(body.decode("utf-8"))
-        task_id = payload["task_id"]
-        result = int(payload["result"])
-        status = payload.get("status", "done")
-        repo.update_result(task_id, result, status=status) # if failed then exception
-        channel.basic_ack(delivery_tag=method.delivery_tag)
-    except Exception:
-        # retry mechanizm + requeue, odporność na chwilowe błędy (np. worker, sieć)
-        channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True) # change to false if u trash queue when testing
+    if "result" not in data:
+        return jsonify({"error": "result is required"}), 400
 
+    status = data.get("status", "done")
+    result = int(data["result"])
 
-#Funkcja konsumenta wyników (uruchamiana w osobnym wątku)
-"""
-    1. Łączy się z RabbitMQ
-    2. Deklaruje RESULT_QUEUE
-    3. Ustawia prefetch_count=1
-    4. Konsumuje wiadomości z kolejki, wywołując _result_callback
-    5. Retry co 2s jeśli Rabbit niedostępny
-"""
-def start_result_consumer():
-    # (re)connect until rabbit is reachable
-    while True:
-        try:
-            credentials = pika.PlainCredentials(RABBIT_USER, RABBIT_PASSWORD)
-            params = pika.ConnectionParameters(
-                host=RABBIT_HOST, port=RABBIT_PORT, credentials=credentials
-            )
-            connection = pika.BlockingConnection(params) # tcp connection
-            channel = connection.channel()
-            channel.queue_declare(queue=RESULT_QUEUE, durable=True) # change to false if u want to clear queue on restart (for tests :P)
-            channel.basic_qos(prefetch_count=1) # send one unacked messg at a time
-            channel.basic_consume(queue=RESULT_QUEUE, on_message_callback=_result_callback)
-            channel.start_consuming() # mnom mnom mnom
-        except Exception:
-            time.sleep(2)
-            continue
+    task = repo.get_task(task_id)
+    if not task:
+        return jsonify({"error": "task not found"}), 404
+
+    repo.update_result(task_id, result, status=status)
+    return jsonify({"task_id": task_id, "status": status}), 200
+
+#Pobiera wszystkie taski z bazy
+@app.route("/tasks", methods=["GET"])
+def list_tasks():
+    tasks = repo.get_all_tasks()
+    return jsonify(tasks), 200
+
 
 #URUCHAMIA SERWIS
 if __name__ == "__main__":
-    if os.getenv("ENABLE_RESULT_CONSUMER", "true").lower() == "true":
-        consumer_thread = threading.Thread(target=start_result_consumer, daemon=True)
-        consumer_thread.start() #uruchamia w tle konsumenta wyników
-
     #Flask API Serwis A
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "6767")), debug=False)
