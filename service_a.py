@@ -128,10 +128,21 @@ def update_task_result(task_id: str):
     result = int(data["result"])
 
     task = repo.get_task(task_id)
-    if not task:
-        return jsonify({"error": "task not found"}), 404
 
-    repo.update_result(task_id, result, status=status)
+    if not task:
+        # task jeszcze nie istniał (tworzymy go z wynikiem) Gdy serwis A wstanie po ubiciu, brak taskID nie będzie problemem
+        if "source" not in data:
+            return jsonify({"error": "source required for new task"}), 400
+
+        repo.upsert_task(
+            task_id=task_id,
+            source=data["source"],
+            status=status,
+            result=result
+        )
+    else:
+        repo.update_result(task_id, result, status=status)
+
     return jsonify({"task_id": task_id, "status": status}), 200
 
 #Pobiera wszystkie taski z bazy

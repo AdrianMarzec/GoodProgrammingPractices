@@ -71,11 +71,7 @@ def enqueue_detection(): #Endpoint. Pobiera info z html (url, czy zapis i gdzie)
         return jsonify({"error": "url is required"}), 400
 
     task_id = str(uuid.uuid4())
-    try:
-        _register_task_with_service_a(task_id, source)
-    except Exception as exc:
-        return jsonify({"error": f"could not register task with service A: {exc}"}), 503
-
+    
     #enqueue do RabbitMQ
     try:
         _publish_task(
@@ -83,6 +79,11 @@ def enqueue_detection(): #Endpoint. Pobiera info z html (url, czy zapis i gdzie)
         )
     except Exception as exc:
         return jsonify({"error": f"could not enqueue task: {exc}"}), 503
+    
+    try:
+        _register_task_with_service_a(task_id, source)
+    except Exception as exc:
+        return jsonify({"error": f"could not register task with service A: {exc}"}), 503
 
     return jsonify({"task_id": task_id}), 202
 

@@ -36,7 +36,8 @@ def process_message(channel, method, properties, body):
             f"{SERVICE_A_URL}/tasks/{task_id}/result",
                     json={
                         "result": result,
-                        "status": "done"
+                        "status": "done",
+                        "source": source
                     },
                     timeout=5
                 )
