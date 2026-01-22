@@ -28,9 +28,27 @@ def process_message(channel, method, properties, body):
         save_img = bool(payload.get("save_img", False))
         save_path = payload.get("save_path") or SAVE_IMG_PATH
 
+        if save_path:
+            os.makedirs(save_path, exist_ok=True)
 
-        # actual detection
-        result = detect_people(source, save_img, save_path) #wywołanie YOLO
+        result_file = os.path.join(save_path, f"{task_id}.json") if save_path else f"{task_id}.json"
+
+        #Ostrożność na wypadek upadnięcia serwisu A - Yolo (i zapis jpg) tylko raz
+        if os.path.exists(result_file):
+            try:
+                with open(result_file, "r") as f:
+                    cached = json.load(f)
+                    result = cached["result"]
+            except Exception:
+                os.remove(result_file)
+                raise
+        else:
+            result = detect_people(source, save_img, save_path) #wywołanie YOLO
+            with open(result_file, "w") as f:
+                json.dump(
+                    {"result": result, "source": source},
+                    f
+                )
 
         resp = requests.post(
             f"{SERVICE_A_URL}/tasks/{task_id}/result",
